@@ -3,5 +3,6 @@ you need coffeescript
 coffee irc.coffee YOUR_NAME
 
 Connects to replicated amqp cluster
+Uses persistant queues, so you get all missed messages everyime you start the node app, irc doesn't even do that shiz, fo real!
 
 proof of concept
