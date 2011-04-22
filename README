@@ -1,0 +1,7 @@
+you need coffeescript
+
+coffee irc.coffee YOUR_NAME
+
+Connects to replicated amqp cluster
+
+proof of concept
