@@ -50,7 +50,10 @@ stream = (stream)->
             console.log "ALL NICKS for #{chan}: #{nicks}"
             for nonce in Object.keys(channel[chan])
                 person = channel[chan][nonce]
-                person.stream.write ":#{user.nick}!USER@127.0.0.1 JOIN #{chan}\r\n"
+                try
+                    person.stream.write ":#{user.nick}!USER@127.0.0.1 JOIN #{chan}\r\n"
+                catch e
+                    console.log e
             user.channel[input[1]] = input[1]            
             connection = user.connection[chan] = amqp.createConnection({host: 'nostat.us'})
             connection.on 'ready', ->
