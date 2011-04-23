@@ -32,7 +32,10 @@ stream = (stream)->
         if input[0] == "USER"
             console.log "GOT USER"
             user.host = input[3]
-            stream.write ":#{user.host} 001 #{user.nick} Hello #{user.nick}!\r\n"
+            try
+                stream.write ":#{user.host} 001 #{user.nick} Hello #{user.nick}!\r\n"
+            catch e
+                console.log e
             console.log "User host: #{user.host}"
         
         if input[0] == "JOIN"
@@ -42,9 +45,28 @@ stream = (stream)->
                     channel[chan] ?= {}
                     channel[chan][user.nick] = user
                     nicks = Object.keys(channel[chan]).join(' ')
+                    
+                    for nick in nicks.split(' ')
+                        stream.write ":#{user.host} 352 #{user.nick} #{chan} ~freenode staff.barbird.com anthony.freenode.net #{nick} H :0 ir\r\n"
+                    stream.write ":#{user.host} 315 #{user.nick} #{chan} :End of /WHO list.\r\n"
+                    stream.write ":#{user.host} 368 #{user.nick} #{chan} :End of Channel Ban List\r\n"
                     connection = user.connection[chan] = amqp.createConnection({host: 'nostat.us'})
                     
-                    user.stream.write ":#{user.nick}!* JOIN #{chan}\r\n"
+                    try
+                       #user.stream.write ":#{user.nick}!* JOIN #{chan}\r\n"
+                       console.log 'foo'
+                    catch e
+                        console.log e
+                    output = """
+                        :#{user.host} 331 #{user.nick} #{chan} :No topic is set
+                        :#{user.host} 353 #{user.nick} = #{chan} :#{nicks}
+                        :#{user.host} 366 #{user.nick} #{chan} :End of /NAMES list.\r\n
+                    """
+                    console.log output
+                    try
+                        user.stream.write output
+                    catch e
+                        console.log e
                     
                     connection.on 'ready', ->
                         pub.nick = user.nick
@@ -82,13 +104,7 @@ stream = (stream)->
                             catch e
                                 console.log e
                             console.log "OUTPUT #{output}"  
-                    output = """
-                        :#{user.host} 331 #{user.nick} #{chan} :No topic is set
-                        :#{user.host} 353 #{user.nick} = #{chan} :#{nicks}
-                        :#{user.host} 366 #{user.nick} #{chan} :End of /NAMES list.\r\n
-                    """
-                    console.log output
-                    users[user.nick].stream.write output
+
     
         input = line.split ' ', 3       
         if input[0] == "PRIVMSG"
@@ -98,32 +114,43 @@ stream = (stream)->
             pub.message = message
             pub.chan = chan
             pub.type = "PRIVMSG"
-            connection.publish chan, JSON.stringify pub
+            try
+                connection.publish chan, JSON.stringify pub
+            catch e
+                console.log e
             console.log "pushed message to queue: #{JSON.stringify pub}"
         
         if input[0] == "QUIT"
             pub.nick = user.nick
             pub.type = "QUIT"
+            user.stream.write ":#{user.nick}!* QUIT\r\n"
+            
+            try
+                connection.publish '*', JSON.stringify pub
+            catch e
+                console.log e
             for conn in Object.keys(user.connection)
                 user.connection[conn].end()
                 console.log "Closing connections for #{user.nick}"
-            connection.publish '*', JSON.stringify pub
+            stream.end()
 
         
         if input[0] == "PART"
+            
             pub.nick = user.nick
             pub.chan = input[1]
             pub.type = "PART"
+            user.stream.write ":#{user.nick}!* PART #{input[1]}\r\n"
             connection.publish input[1], JSON.stringify pub
-            
-        
-            
+            user.connection[input[1]].end()
 
         console.log line.toString()
     stream.on 'end', ->
+        for conn in Object.keys(user.connection)
+                user.connection[conn].end()
         pub.nick = user.nick
         pub.type = "QUIT"
-        connection.publish '*', JSON.stringify pub
+        #connection.publish '*', JSON.stringify pub
         console.log "DISCONNECTED"
         
 server = net.createServer(stream)
