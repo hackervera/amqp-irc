@@ -1,7 +1,5 @@
 net = require 'net'
-redis = require 'redis'
 amqp = require './node-amqp'
-client = redis.createClient()
 host = require('./config').info.server
 console.log host
 class User
