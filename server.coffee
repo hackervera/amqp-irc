@@ -2,6 +2,8 @@ net = require 'net'
 redis = require 'redis'
 amqp = require './node-amqp'
 client = redis.createClient()
+host = require('./config').info.server
+console.log host
 class User
 channel = {}
 streams = []
@@ -50,7 +52,7 @@ stream = (stream)->
                         stream.write ":#{user.host} 352 #{user.nick} #{chan} ~freenode staff.barbird.com anthony.freenode.net #{nick} H :0 ir\r\n"
                     stream.write ":#{user.host} 315 #{user.nick} #{chan} :End of /WHO list.\r\n"
                     stream.write ":#{user.host} 368 #{user.nick} #{chan} :End of Channel Ban List\r\n"
-                    connection = user.connection[chan] = amqp.createConnection({host: 'nostat.us'})
+                    connection = user.connection[chan] = amqp.createConnection({host: host})
                     
                     try
                        #user.stream.write ":#{user.nick}!* JOIN #{chan}\r\n"
@@ -80,6 +82,8 @@ stream = (stream)->
                             pub = JSON.parse message.data
                             
                             if pub.type == "PRIVMSG"
+                                if pub.message.charAt(0) != ":"
+                                    pub.message = ":#{pub.message}"
                                 output = """
                                     :#{pub.nick}!USER@127.0.0.1 PRIVMSG #{pub.chan} #{pub.message}\r\n
                                 """
@@ -141,7 +145,10 @@ stream = (stream)->
             pub.chan = input[1]
             pub.type = "PART"
             user.stream.write ":#{user.nick}!* PART #{input[1]}\r\n"
-            connection.publish input[1], JSON.stringify pub
+            try
+                connection.publish input[1], JSON.stringify pub
+            catch e
+                console.log e
             user.connection[input[1]].end()
 
         console.log line.toString()
